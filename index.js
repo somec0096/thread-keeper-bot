@@ -33,19 +33,20 @@ async function sendWithRetry(thread, retries = 3, delay = 2000) {
 // -----------------------------------------
 
 client.once("ready", async () => {
-  console.log(`✅ 机器人 ${client.user.tag} 已启动，开始自动处理所有论坛...`);
+  console.log(
+    `✅ 机器人 ${client.user.tag} 已启动，开始自动处理所有论坛的活跃帖子...`,
+  );
 
-  // 你的服务器ID（请确认是否正确）
-  const GUILD_ID = "1361734105699713137";
+  const GUILD_ID = "1361734105699713137"; // 确认是你的服务器ID
 
   try {
     const guild = await client.guilds.fetch(GUILD_ID);
     await guild.channels.fetch();
 
+    // 获取所有论坛频道
     const forumChannels = guild.channels.cache.filter(
       (channel) => channel.type === ChannelType.GuildForum,
     );
-
     console.log(`📢 在服务器中找到了 ${forumChannels.size} 个论坛频道。`);
 
     for (const forumChannel of forumChannels.values()) {
@@ -53,47 +54,17 @@ client.once("ready", async () => {
         `\n--- 开始处理论坛频道: ${forumChannel.name} (ID: ${forumChannel.id}) ---`,
       );
 
-      // 获取所有活跃帖子
+      // 仅获取活跃帖子
       const activeThreads = await forumChannel.threads.fetchActive();
       console.log(`找到 ${activeThreads.threads.size} 个活跃帖子`);
 
-      // 获取所有归档帖子（自动分页）
-      let allArchivedThreads = [];
-      let lastThreadId = null;
-      let hasMore = true;
-
-      while (hasMore) {
-        const options = { limit: 100 };
-        if (lastThreadId) options.before = lastThreadId;
-
-        const fetched = await forumChannel.threads.fetchArchived(options);
-        const threadsArray = Array.from(fetched.threads.values());
-        allArchivedThreads = allArchivedThreads.concat(threadsArray);
-
-        // 如果返回的帖子数少于 limit，说明没有更多了
-        if (threadsArray.length < 100) {
-          hasMore = false;
-        } else {
-          // 设置下一页的 before 为当前页最后一个帖子的 ID
-          lastThreadId = threadsArray[threadsArray.length - 1].id;
-        }
-      }
-
-      console.log(`找到 ${allArchivedThreads.length} 个归档帖子`);
-
-      // 合并处理所有帖子
-    const allThreads = [
-      ...activeThreads.threads.values(),
-      ...allArchivedThreads,
-    ];
-
-      // 使用带重试的发送函数处理每个帖子
-      for (const thread of allThreads) {
-        await sendWithRetry(thread, 3, 2000); // 最多重试3次，间隔2秒
+      // 处理每个活跃帖子（带重试）
+      for (const thread of activeThreads.threads.values()) {
+        await sendWithRetry(thread, 3, 2000);
       }
     }
 
-    console.log("\n✨ 所有论坛频道处理完毕！");
+    console.log("\n✨ 所有活跃帖子处理完毕！");
   } catch (error) {
     console.error("❌ 严重错误:", error);
   } finally {
