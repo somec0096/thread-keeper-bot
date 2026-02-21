@@ -57,17 +57,35 @@ client.once("ready", async () => {
       const activeThreads = await forumChannel.threads.fetchActive();
       console.log(`找到 ${activeThreads.threads.size} 个活跃帖子`);
 
-      // 获取所有归档帖子（limit: 100 表示最多获取100个，如果超过100需要分页）
-      const archivedThreads = await forumChannel.threads.fetchArchived({
-        limit: 100,
-      });
-      console.log(`找到 ${archivedThreads.threads.size} 个归档帖子`);
+      // 获取所有归档帖子（自动分页）
+      let allArchivedThreads = [];
+      let lastThreadId = null;
+      let hasMore = true;
+
+      while (hasMore) {
+        const options = { limit: 100 };
+        if (lastThreadId) options.before = lastThreadId;
+
+        const fetched = await forumChannel.threads.fetchArchived(options);
+        const threadsArray = Array.from(fetched.threads.values());
+        allArchivedThreads = allArchivedThreads.concat(threadsArray);
+
+        // 如果返回的帖子数少于 limit，说明没有更多了
+        if (threadsArray.length < 100) {
+          hasMore = false;
+        } else {
+          // 设置下一页的 before 为当前页最后一个帖子的 ID
+          lastThreadId = threadsArray[threadsArray.length - 1].id;
+        }
+      }
+
+      console.log(`找到 ${allArchivedThreads.length} 个归档帖子`);
 
       // 合并处理所有帖子
-      const allThreads = [
-        ...activeThreads.threads.values(),
-        ...archivedThreads.threads.values(),
-      ];
+    const allThreads = [
+      ...activeThreads.threads.values(),
+      ...allArchivedThreads,
+    ];
 
       // 使用带重试的发送函数处理每个帖子
       for (const thread of allThreads) {
