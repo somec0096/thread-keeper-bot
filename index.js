@@ -32,13 +32,24 @@ client.once("ready", async () => {
         `\n--- 开始处理论坛频道: ${forumChannel.name} (ID: ${forumChannel.id}) ---`,
       );
 
-      // 获取该论坛下的所有活跃帖子
+      // 获取所有活跃帖子
       const activeThreads = await forumChannel.threads.fetchActive();
       console.log(`找到 ${activeThreads.threads.size} 个活跃帖子`);
 
-      for (const thread of activeThreads.threads.values()) {
+      // 获取所有归档帖子（limit: 100 表示最多获取100个，如果超过100需要分页）
+      const archivedThreads = await forumChannel.threads.fetchArchived({
+        limit: 100,
+      });
+      console.log(`找到 ${archivedThreads.threads.size} 个归档帖子`);
+
+      // 合并处理所有帖子
+      const allThreads = [
+        ...activeThreads.threads.values(),
+        ...archivedThreads.threads.values(),
+      ];
+
+      for (const thread of allThreads) {
         try {
-          // 发送空白消息并立即删除
           const sentMessage = await thread.send("\u200b");
           await sentMessage.delete();
           console.log(`  ✅ 续命成功: ${thread.name}`);
